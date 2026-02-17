@@ -1,31 +1,34 @@
 package request
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
 
-/*
-GET /something HTTP/1.1
-*/
-type RequestLine struct {
-	HttpVersion   string
-	RequestTarget string
-	Method        string
-}
-
 type Request struct {
 	RequestLine RequestLine
-	Headers     map[string]string
-	Body        []byte
-}
-
-var ERR_BAD_START_LINE = fmt.Errorf("bad start line")
-
-func ParseRequestLine(s string) (*Request, string, error) {
-	// will do later
+	// Headers     map[string]string
+	// Body        []byte
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	// will do later
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, errors.Join(
+			fmt.Errorf("unable to io.readALl"),
+			err,
+		)
+	}
+
+	str := string(data)
+
+	rl, _, err := ParseRequestLine(str)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Request{
+		RequestLine: *rl,
+	}, err
 }
