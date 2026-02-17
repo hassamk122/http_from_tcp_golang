@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
 )
@@ -12,15 +12,30 @@ func main() {
 	if err != nil {
 		log.Fatal("open error : ", err)
 	}
+
+	str := ""
 	for {
 		data := make([]byte, 8)
+
 		n, err := f.Read(data)
 		if err != nil {
-			if err == io.EOF {
-				fmt.Println("file ended")
-			}
 			break
 		}
-		fmt.Printf("read %s\n", string(data[:n]))
+
+		data = data[:n]
+
+		idxNewline := bytes.IndexByte(data, '\n')
+		if idxNewline != -1 {
+			str += string(data[:idxNewline])
+			data = data[idxNewline+1:]
+			fmt.Printf("read : %s\n", str)
+			str = ""
+		}
+
+		str += string(data)
+	}
+
+	if len(str) != 0 {
+		fmt.Printf("read : %s\n", str)
 	}
 }
