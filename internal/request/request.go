@@ -1,34 +1,67 @@
 package request
 
 import (
-	"errors"
-	"fmt"
 	"io"
+)
+
+type parserState string
+
+const (
+	StateInit parserState = "init"
+	StateDone parserState = "done"
 )
 
 type Request struct {
 	RequestLine RequestLine
+	state       parserState
 	// Headers     map[string]string
 	// Body        []byte
 }
 
-func RequestFromReader(reader io.Reader) (*Request, error) {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, errors.Join(
-			fmt.Errorf("unable to io.readALl"),
-			err,
-		)
-	}
-
-	str := string(data)
-
-	rl, _, err := ParseRequestLine(str)
-	if err != nil {
-		return nil, err
-	}
-
+func newRequest() *Request {
 	return &Request{
-		RequestLine: *rl,
-	}, err
+		state: StateInit,
+	}
+}
+
+func (r *Request) parse(data []byte) (int, error) {
+	read := 0
+outer:
+	for {
+		switch r.state {
+		case StateInit:
+		case StateDone:
+			break outer
+		}
+	}
+
+	return read, nil
+}
+
+func (r *Request) Done() bool {
+	return r.state == StateDone
+}
+
+func RequestFromReader(reader io.Reader) (*Request, error) {
+	request := newRequest()
+	buff := make([]byte, 1024)
+	bufLen := 0
+	for !request.Done() {
+		n, err := reader.Read(buff[bufLen:])
+		if err != nil {
+			return nil, err
+		}
+
+		bufLen += n
+
+		readN, err := request.parse(buff[:bufLen+n])
+		if err != nil {
+			return nil, err
+		}
+
+		copy(buff, buff[readN:bufLen])
+		bufLen -= readN
+	}
+
+	return request, nil
 }

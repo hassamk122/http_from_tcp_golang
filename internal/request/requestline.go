@@ -1,6 +1,8 @@
 package request
 
-import "strings"
+import (
+	"bytes"
+)
 
 /*
 GET /something HTTP/1.1
@@ -15,30 +17,30 @@ type RequestLine struct {
 Remember
 method space request-target space HTTP-version
 */
-func ParseRequestLine(s string) (*RequestLine, string, error) {
-	idx := strings.Index(s, SEPARATOR)
+func ParseRequestLine(b []byte) (*RequestLine, int, error) {
+	idx := bytes.Index(b, SEPARATOR)
 	if idx == -1 {
-		return nil, s, nil
+		return nil, 0, nil
 	}
 
-	startLine := s[:idx]
-	restOfMsg := s[idx+len(SEPARATOR):]
+	startLine := b[:idx]
+	read := idx + len(SEPARATOR)
 
-	parts := strings.Split(startLine, " ")
+	parts := bytes.Split(startLine, []byte(" "))
 	if len(parts) != 3 {
-		return nil, restOfMsg, ERR_BAD_REQUESTLINE
+		return nil, 0, ERR_BAD_REQUESTLINE
 	}
 
-	httpParts := strings.Split(parts[2], "/")
-	if len(httpParts) != 2 || httpParts[0] != "HTTP" || httpParts[1] != "1.1" {
-		return nil, restOfMsg, ERR_BAD_REQUESTLINE
+	httpParts := bytes.Split(parts[2], []byte("/"))
+	if len(httpParts) != 2 || string(httpParts[0]) != "HTTP" || string(httpParts[1]) != "1.1" {
+		return nil, 0, ERR_BAD_REQUESTLINE
 	}
 
 	rl := &RequestLine{
-		Method:        parts[0],
-		RequestTarget: parts[1],
-		HttpVersion:   httpParts[1],
+		Method:        string(parts[0]),
+		RequestTarget: string(parts[1]),
+		HttpVersion:   string(httpParts[1]),
 	}
 
-	return rl, restOfMsg, nil
+	return rl, read, nil
 }
