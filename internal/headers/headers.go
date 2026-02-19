@@ -2,6 +2,7 @@ package headers
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -20,7 +21,14 @@ func (h *Headers) Get(name string) string {
 }
 
 func (h *Headers) Set(name, value string) {
-	h.headers[strings.ToLower(name)] = value
+	name = strings.ToLower(name)
+
+	if v, ok := h.headers[name]; ok {
+		h.headers[name] = fmt.Sprintf("%s,%s", v, value)
+	} else {
+		h.headers[name] = value
+	}
+
 }
 
 func isToken(str []byte) bool {

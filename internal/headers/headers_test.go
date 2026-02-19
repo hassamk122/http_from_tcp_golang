@@ -46,3 +46,14 @@ func TestInvalidFieldToken(t *testing.T) {
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
 }
+
+func TestMultipleFieldToken(t *testing.T) {
+	headers := NewHeaders()
+	data := []byte("Host: localhost:42069\r\nHost: localhost:42069\r\n")
+	n, done, err := headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost:42069,localhost:42069", headers.Get("Host"))
+	assert.NotEqual(t, 0, n)
+	assert.False(t, done)
+}
