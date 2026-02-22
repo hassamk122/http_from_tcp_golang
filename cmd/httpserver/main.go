@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,12 +10,21 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/hassamk122/http_from_tcp_golang/internal/headers"
 	"github.com/hassamk122/http_from_tcp_golang/internal/request"
 	"github.com/hassamk122/http_from_tcp_golang/internal/response"
 	"github.com/hassamk122/http_from_tcp_golang/internal/server"
 )
 
 const port = 42069
+
+func toStr(bytes []byte) string {
+	out := ""
+	for _, b := range bytes {
+		out += fmt.Sprintf("%x", b)
+	}
+	return out
+}
 
 func serveBasicHtmlAndGetChunkedData(w *response.Writer, req *request.Request) {
 	h := response.GetDefaultHeaders(0)
@@ -27,7 +37,7 @@ func serveBasicHtmlAndGetChunkedData(w *response.Writer, req *request.Request) {
 	} else if req.RequestLine.RequestTarget == "/myproblem" {
 		body = respond500()
 		status = response.StatusInternalServerError
-	} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/stream/100") {
+	} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/html") {
 		target := req.RequestLine.RequestTarget
 		resp, err := http.Get("http://httpbin.org/" + target[len("/httpbin/"):])
 		if err != nil {
@@ -37,19 +47,29 @@ func serveBasicHtmlAndGetChunkedData(w *response.Writer, req *request.Request) {
 			w.WriteStatusLine(response.StatusOK)
 			h.Delete("content-length")
 			h.Set("transfer-encoding", "chunked")
+			h.Set("Trailer", "X-Content-SHA256")
+			h.Set("Trailer", "X-Content-Length")
 			h.Replace("content-type", "text/plain")
 			w.WriteHeaders(*h)
+			fullBody := []byte{}
 			for {
 				data := make([]byte, 32)
 				n, err := resp.Body.Read(data)
 				if err != nil {
 					break
 				}
+				fullBody = append(fullBody, data[:n]...)
 				w.WriteBody([]byte(fmt.Sprintf("%x\r\n", n)))
 				w.WriteBody(data[:n])
 				w.WriteBody([]byte("\r\n"))
 			}
-			w.WriteBody([]byte("0\r\n\r\n"))
+			w.WriteBody([]byte("0\r\n"))
+
+			out := sha256.Sum256(fullBody)
+			tailers := headers.NewHeaders()
+			tailers.Set("X-Content-SHA256", toStr(out[:]))
+			tailers.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+			w.WriteHeaders(*tailers)
 			return
 		}
 	}
