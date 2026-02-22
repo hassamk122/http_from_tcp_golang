@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/hassamk122/http_from_tcp_golang/internal/request"
@@ -14,7 +16,7 @@ import (
 
 const port = 42069
 
-func serveBasicHtml(w *response.Writer, req *request.Request) {
+func serveBasicHtmlAndGetChunkedData(w *response.Writer, req *request.Request) {
 	h := response.GetDefaultHeaders(0)
 	body := respond200()
 	status := response.StatusOK
@@ -25,6 +27,31 @@ func serveBasicHtml(w *response.Writer, req *request.Request) {
 	} else if req.RequestLine.RequestTarget == "/myproblem" {
 		body = respond500()
 		status = response.StatusInternalServerError
+	} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/stream/100") {
+		target := req.RequestLine.RequestTarget
+		resp, err := http.Get("http://httpbin.org/" + target[len("/httpbin/"):])
+		if err != nil {
+			body = respond500()
+			status = response.StatusInternalServerError
+		} else {
+			w.WriteStatusLine(response.StatusOK)
+			h.Delete("content-length")
+			h.Set("transfer-encoding", "chunked")
+			h.Replace("content-type", "text/plain")
+			w.WriteHeaders(*h)
+			for {
+				data := make([]byte, 32)
+				n, err := resp.Body.Read(data)
+				if err != nil {
+					break
+				}
+				w.WriteBody([]byte(fmt.Sprintf("%x\r\n", n)))
+				w.WriteBody(data[:n])
+				w.WriteBody([]byte("\r\n"))
+			}
+			w.WriteBody([]byte("0\r\n\r\n"))
+			return
+		}
 	}
 
 	h.Replace("Content-length", fmt.Sprintf("%d", len(body)))
@@ -36,7 +63,7 @@ func serveBasicHtml(w *response.Writer, req *request.Request) {
 }
 
 func main() {
-	s, err := server.Serve(port, serveBasicHtml)
+	s, err := server.Serve(port, serveBasicHtmlAndGetChunkedData)
 	if err != nil {
 		log.Fatal("Error starting server : %v", err)
 	}
