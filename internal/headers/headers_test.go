@@ -13,7 +13,9 @@ func TestValidSingleHeader(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers.Get("Host"))
+	value, ok := headers.Get("Host")
+	assert.True(t, ok)
+	assert.Equal(t, "localhost:42069", value)
 	assert.Equal(t, 25, n)
 	assert.True(t, done)
 }
@@ -24,7 +26,9 @@ func TestHeadersWithSpaces(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers.Get("Host"))
+	value, ok := headers.Get("Host")
+	assert.True(t, ok)
+	assert.Equal(t, "localhost:42069", value)
 	assert.Equal(t, 36, n)
 	assert.False(t, done)
 }
@@ -53,7 +57,9 @@ func TestMultipleFieldToken(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069,localhost:42069", headers.Get("Host"))
+	value, ok := headers.Get("Host")
+	assert.True(t, ok)
+	assert.Equal(t, "localhost:42069,localhost:42069", value)
 	assert.NotEqual(t, 0, n)
 	assert.False(t, done)
 }
