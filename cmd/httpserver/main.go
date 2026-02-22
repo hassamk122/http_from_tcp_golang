@@ -21,7 +21,7 @@ const port = 42069
 func toStr(bytes []byte) string {
 	out := ""
 	for _, b := range bytes {
-		out += fmt.Sprintf("%x", b)
+		out += fmt.Sprintf("%02x", b)
 	}
 	return out
 }
@@ -37,6 +37,14 @@ func serveBasicHtmlAndGetChunkedData(w *response.Writer, req *request.Request) {
 	} else if req.RequestLine.RequestTarget == "/myproblem" {
 		body = respond500()
 		status = response.StatusInternalServerError
+	} else if req.RequestLine.RequestTarget == "/video" {
+		f, _ := os.ReadFile("assets/cat.mp4")
+		h.Replace("content-type", "video/mp4")
+		h.Replace("content-length", fmt.Sprintf("%d", len(f)))
+		w.WriteStatusLine(status)
+		w.WriteHeaders(*h)
+		w.WriteBody(f)
+
 	} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/html") {
 		target := req.RequestLine.RequestTarget
 		resp, err := http.Get("http://httpbin.org/" + target[len("/httpbin/"):])
