@@ -22,7 +22,7 @@ type Server struct {
 	handler Handler
 }
 
-func runConnection(s *Server, conn io.ReadWriteCloser) {
+func (s *Server) handle(conn io.ReadWriteCloser) {
 	defer conn.Close()
 
 	headers := response.GetDefaultHeaders(0)
@@ -52,7 +52,7 @@ func runConnection(s *Server, conn io.ReadWriteCloser) {
 	conn.Write(body)
 }
 
-func runServer(s *Server, listener net.Listener) {
+func listen(s *Server, listener net.Listener) {
 	for {
 		conn, err := listener.Accept()
 		if s.closed {
@@ -62,7 +62,7 @@ func runServer(s *Server, listener net.Listener) {
 			return
 		}
 
-		go runConnection(s, conn)
+		go s.handle(conn)
 
 	}
 }
@@ -77,7 +77,7 @@ func Serve(port uint16, handler Handler) (*Server, error) {
 		closed:  false,
 		handler: handler,
 	}
-	go runServer(server, listener)
+	go listen(server, listener)
 	return server, nil
 }
 
