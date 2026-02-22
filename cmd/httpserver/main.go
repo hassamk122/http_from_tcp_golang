@@ -1,18 +1,39 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/hassamk122/http_from_tcp_golang/internal/request"
+	"github.com/hassamk122/http_from_tcp_golang/internal/response"
 	"github.com/hassamk122/http_from_tcp_golang/internal/server"
 )
 
 const port = 42069
 
+func dummyHandlerfunc(w io.Writer, req *request.Request) *server.HandlerError {
+	switch req.RequestLine.RequestTarget {
+	case "/yourproblem":
+		return &server.HandlerError{
+			StatusCode: response.StatusBadRequest,
+			Message:    "Your problem is not my problem\n",
+		}
+	case "/myproblem":
+		return &server.HandlerError{
+			StatusCode: response.StatusInternalServerError,
+			Message:    "Woopise, my bad\n",
+		}
+	default:
+		w.Write([]byte("All good frr\n"))
+	}
+	return nil
+}
+
 func main() {
-	s, err := server.Serve(port)
+	s, err := server.Serve(port, dummyHandlerfunc)
 	if err != nil {
 		log.Fatal("Error starting server : %v", err)
 	}
