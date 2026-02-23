@@ -4,10 +4,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/hassamk122/http_from_tcp_golang/internal/headers"
@@ -45,9 +43,8 @@ func serveBasicHtmlAndGetChunkedData(w *response.Writer, req *request.Request) {
 		w.WriteHeaders(*h)
 		w.WriteBody(f)
 
-	} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/html") {
-		target := req.RequestLine.RequestTarget
-		resp, err := http.Get("http://httpbin.org/" + target[len("/httpbin/"):])
+	} else if req.RequestLine.RequestTarget == "/chunked" {
+		fileData, err := os.ReadFile("assets/big.txt")
 		if err != nil {
 			body = respond500()
 			status = response.StatusInternalServerError
@@ -59,25 +56,27 @@ func serveBasicHtmlAndGetChunkedData(w *response.Writer, req *request.Request) {
 			h.Set("Trailer", "X-Content-Length")
 			h.Replace("content-type", "text/plain")
 			w.WriteHeaders(*h)
+
+			const chunkSize = 32
 			fullBody := []byte{}
-			for {
-				data := make([]byte, 32)
-				n, err := resp.Body.Read(data)
-				if err != nil {
-					break
+			for i := 0; i < len(fileData); i += chunkSize {
+				end := i + chunkSize
+				if end > len(fileData) {
+					end = len(fileData)
 				}
-				fullBody = append(fullBody, data[:n]...)
-				w.WriteBody([]byte(fmt.Sprintf("%x\r\n", n)))
-				w.WriteBody(data[:n])
+				chunk := fileData[i:end]
+				fullBody = append(fullBody, chunk...)
+				w.WriteBody([]byte(fmt.Sprintf("%x\r\n", len(chunk))))
+				w.WriteBody(chunk)
 				w.WriteBody([]byte("\r\n"))
 			}
-			w.WriteBody([]byte("0\r\n"))
 
+			w.WriteBody([]byte("0\r\n"))
 			out := sha256.Sum256(fullBody)
-			tailers := headers.NewHeaders()
-			tailers.Set("X-Content-SHA256", toStr(out[:]))
-			tailers.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
-			w.WriteHeaders(*tailers)
+			trailers := headers.NewHeaders()
+			trailers.Set("X-Content-SHA256", toStr(out[:]))
+			trailers.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+			w.WriteHeaders(*trailers)
 			return
 		}
 	}
